@@ -3,12 +3,34 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions
 import json
+import time
+
+def print_order(order_details):
+    print('{:^64}'.format(order_details['store']))
+    print('=' * 64)
+    for item in order_details['items']:
+        print('{:52.52}{:4d}{:8.2f}'.format(item['name'], item['qty'], item['cost']))
+    print('-' * 64)
+    print('{:56.56}{:8.2f}'.format('Subtotal', order_details['subtotal']))
+    print('{:56.56}{:8.2f}'.format('Tax', order_details['tax']))
+    print('-' * 64)
+    print('{:56.56}{:8.2f}'.format('Total', order_details['total']))
+    print('-' * 64)
 
 def get_order_details():
+    print('Getting order details from instacart...')
+
+    # driver = webdriver.safari.webdriver.WebDriver()
+    print('Initializing WebDriver...')
+    driver = webdriver.PhantomJS()
+    driver.maximize_window();
+
     # Instacart
+    print('\tOpening Instacart...')
     driver.get('https://www.instacart.com')
     try:
         # Login
+        print('\tLogging in...')
         login = driver.find_element_by_xpath('//*[@id="root"]/div/div/header/div/div[2]/div/button')
         login.click()
         email = driver.find_element_by_id('nextgen-authenticate.all.log_in_email')
@@ -19,6 +41,7 @@ def get_order_details():
         login.click()
 
         # Go to the orders page
+        print('\tExtracting order receipt...')
         WebDriverWait(driver, 600).until(expected_conditions.presence_of_element_located((By.XPATH, '//*[@id="header"]/div/div/div[1]/div[3]/div[1]/a')))
         driver.get('https://www.instacart.com/store/account/orders')
         WebDriverWait(driver, 600).until(expected_conditions.presence_of_element_located((By.XPATH, '//*[@id="icOrdersList"]/ul/li[1]/div[1]/a')))
@@ -61,18 +84,29 @@ def get_order_details():
             "tax" : tax,
             "total" : total
         }
-        return order_details
-
+        print_order(order_details)
     except Exception as e:
         print(e)
+    finally:
+        driver.close()
+        return order_details
 
 def add_splitwise_bill(order_details):
 
+    print('Adding expense to Splitwise...')
+
+    print('Initializing WebDriver...')
+    driver = webdriver.safari.webdriver.WebDriver()
+    # driver = webdriver.PhantomJS()
+    driver.maximize_window();
+
     # Splitwise
+    print('\tOpening Splitwise...')
     driver.get('https://secure.splitwise.com/login')
 
     try:
         # Login
+        print('\tLogging in...')
         form = driver.find_element_by_class_name('wrapper').find_element_by_id('new_user_session') 
         email = form.find_element_by_id('user_session_email')
         password = form.find_element_by_id('user_session_password')
@@ -82,6 +116,7 @@ def add_splitwise_bill(order_details):
         login.click()
 
         # Go to the desired group
+        print('\tAdding expense in group...')
         WebDriverWait(driver, 600).until(expected_conditions.presence_of_element_located((By.XPATH, '//*[@id="center_column"]/div[1]/div/div/a[1]')))
         driver.get('https://secure.splitwise.com/#/groups/%s' % config['splitwise']['group'])
         WebDriverWait(driver, 600).until(expected_conditions.invisibility_of_element_located((By.ID, 'loading')))
@@ -94,12 +129,12 @@ def add_splitwise_bill(order_details):
         description.send_keys(order_details['store'])
         split = driver.find_element_by_class_name('split')
         split.click()
-        driver.implicitly_wait(2)
+        time.sleep(2)
 
         # Choose itemized split
         WebDriverWait(driver, 600).until(expected_conditions.element_to_be_clickable((By.XPATH, '//*[@id="split_method"]/button[7]')))
         itemized_split = driver.find_element_by_xpath('//*[@id="split_method"]/button[7]')
-        driver.implicitly_wait(2)
+        driver.implicitly_wait(5)
         itemized_split.click()
         WebDriverWait(driver, 600).until(expected_conditions.visibility_of_element_located((By.ID, 'item_holder')))
         item_list = driver.find_element_by_id('item_holder')
@@ -119,13 +154,16 @@ def add_splitwise_bill(order_details):
         tax = driver.find_element_by_name('tax')
         tax.send_keys('%.2f' % order_details['tax'])
 
-        # Click done
-        driver.find_element_by_xpath('//*[@id="choose_split"]/div/div/div[8]/button').click()
-        WebDriverWait(driver, 600).until(expected_conditions.invisibility_of_element_located((By.ID, 'item_holder')))
+        input('Review the expense added and press any key to finish...')
+        driver.close()
 
-        # Click save
-        driver.find_element_by_xpath('//*[@id="add_bill"]/div/div[2]/footer/button[2]').click()
-        WebDriverWait(driver, 600).until(expected_conditions.invisibility_of_element_located((By.ID, 'add_bill')))
+        # # Click done
+        # driver.find_element_by_xpath('//*[@id="choose_split"]/div/div/div[8]/button').click()
+        # WebDriverWait(driver, 600).until(expected_conditions.invisibility_of_element_located((By.ID, 'item_holder')))
+
+        # # Click save
+        # driver.find_element_by_xpath('//*[@id="add_bill"]/div/div[2]/footer/button[2]').click()
+        # WebDriverWait(driver, 600).until(expected_conditions.invisibility_of_element_located((By.ID, 'add_bill')))
 
     except Exception as e:
         print(type(e))
@@ -136,10 +174,5 @@ if __name__ == '__main__':
     with open('config.json') as json_file:
         config = json.load(json_file)
 
-    driver = webdriver.safari.webdriver.WebDriver()
-    driver.maximize_window();
-
     order_details = get_order_details()
     add_splitwise_bill(order_details)
-
-    driver.close()
