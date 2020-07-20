@@ -44,11 +44,20 @@ def get_order_details():
         print('\tExtracting order receipt...')
         WebDriverWait(driver, 600).until(expected_conditions.presence_of_element_located((By.XPATH, '//*[@id="header"]/div/div/div[1]/div[3]/div[1]/a')))
         driver.get('https://www.instacart.com/store/account/orders')
-        WebDriverWait(driver, 600).until(expected_conditions.presence_of_element_located((By.XPATH, '//*[@id="icOrdersList"]/ul/li[1]/div[1]/a')))
-        latest_order_ele = driver.find_element_by_xpath('//*[@id="icOrdersList"]/ul/li[1]/div[1]/a')
-        latest_order = latest_order_ele.get_attribute('href')
+        WebDriverWait(driver, 600).until(expected_conditions.presence_of_element_located((By.XPATH, '//*[@id="icOrdersList"]/ul/li[1]')))
+        order_list = driver.find_element_by_xpath('//*[@id="icOrdersList"]/ul')
+        orders = order_list.find_elements_by_tag_name('li')
+        idx = 0
+        for order in orders:
+            order_date = order.find_element_by_xpath('.//div[1]/div/div[1]/p[2]').text
+            print('%d.\t%s' % (idx, order_date))
+            idx += 1
 
-        # Select the latest order
+        selected_idx = input('Select an order: ')
+        print('Selected order: ' + selected_idx)
+
+        # Select the order
+        latest_order = orders[int(selected_idx)].find_element_by_xpath('.//div[1]/a').get_attribute('href')
         driver.get(latest_order)
         WebDriverWait(driver, 600).until(expected_conditions.presence_of_element_located((By.CLASS_NAME, 'order-summary-items')))
         order_summary = driver.find_element_by_class_name('order-summary-items')
